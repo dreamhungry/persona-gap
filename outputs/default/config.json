@@ -1,0 +1,52 @@
+{
+  "seed": 42,
+  "num_episodes": 50,
+  "output_dir": "outputs/default",
+  "llm": {
+    "api_key": "sk-28AWdj18YUvUwtF-nW2Rhw",
+    "api_base": "http://litellm.sgra.woa.com/v1",
+    "model": "gpt-5.4",
+    "temperature": 0.7,
+    "max_tokens": 512,
+    "max_retries": 3,
+    "timeout": null,
+    "extra_params": {},
+    "judge_model": null,
+    "judge_temperature": 0.0
+  },
+  "env": {
+    "adapter": "rlcard",
+    "game_name": "leduc-holdem",
+    "action_annotations_path": "configs/envs/leduc_holdem.toml"
+  },
+  "agents": [
+    {
+      "agent_id": "agent_0",
+      "personality": {
+        "risk": 0.8,
+        "aggression": 0.9,
+        "cooperation": 0.2,
+        "deception": 0.5
+      },
+      "model": null,
+      "temperature": null,
+      "max_tokens": null,
+      "memory_enabled": true,
+      "communication_enabled": true
+    },
+    {
+      "agent_id": "agent_1",
+      "personality": {
+        "risk": 0.3,
+        "aggression": 0.2,
+        "cooperation": 0.8,
+        "deception": 0.1
+      },
+      "model": null,
+      "temperature": null,
+      "max_tokens": null,
+      "memory_enabled": true,
+      "communication_enabled": true
+    }
+  ]
+}

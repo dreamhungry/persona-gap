@@ -108,8 +108,9 @@ class RLCardAdapter:
     def step(
         self, action: str
     ) -> tuple[dict[str, str], dict[str, float], bool, dict[str, Any]]:
-        # rlcard accepts action strings directly
-        state, player_idx = self._env.step(action)
+        # rlcard expects integer action IDs, not raw action strings
+        action_id = self._action_to_id(action)
+        state, player_idx = self._env.step(action_id)
         self._current_state = state
         self._current_player_idx = player_idx
 
@@ -169,6 +170,31 @@ class RLCardAdapter:
     # ------------------------------------------------------------------
     # Observation formatting
     # ------------------------------------------------------------------
+
+    def _action_to_id(self, action: str) -> int:
+        """Convert an action string (e.g. 'call') to its rlcard integer ID.
+
+        RLCard internally uses integer action IDs. The mapping is stored in
+        ``self._env._decode_action`` / ``self._env.actions``. We build a
+        reverse lookup from the environment's action list.
+        """
+        # rlcard envs expose an `actions` list where index = action_id
+        actions_list = getattr(self._env, "actions", None)
+        if actions_list is not None:
+            for idx, act in enumerate(actions_list):
+                if act == action:
+                    return idx
+
+        # Fallback: if action is already numeric
+        try:
+            return int(action)
+        except (ValueError, TypeError):
+            pass
+
+        raise ValueError(
+            f"Cannot map action '{action}' to an integer ID. "
+            f"Known actions: {actions_list}"
+        )
 
     def _format_observation(self, state: dict[str, Any]) -> str:
         """Convert rlcard raw_obs into a human-readable text for LLM prompts."""

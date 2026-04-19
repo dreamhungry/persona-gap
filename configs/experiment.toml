@@ -3,15 +3,17 @@
 
 [experiment]
 seed = 42
-num_episodes = 50
+num_episodes = 5
 output_dir = "outputs/default"
 
 # ---------- LLM Global Configuration ----------
-# All API credentials and model parameters are centralized here; no env vars needed
+# Secrets (api_key, api_base) are loaded from .env file at project root.
+# See .env.example for available environment variables.
+# Values set here override .env — leave empty or omit to use .env values.
 [llm]
-api_key = "sk-xxx"               # Replace with your API Key
-# api_base = "https://api.openai.com/v1"  # Custom API endpoint (OpenAI-compatible)
-model = "gpt-4o-mini"            # Default model (litellm format, e.g. "deepseek/deepseek-chat")
+# api_key = ""                   # Set in .env as LLM_API_KEY (recommended)
+# api_base = ""                  # Set in .env as LLM_API_BASE (recommended)
+model = ""            # Default model (litellm format, e.g. "deepseek/deepseek-chat")
 temperature = 0.7                # Default sampling temperature
 max_tokens = 512                 # Default max output tokens
 max_retries = 3                  # Retry count for failed LLM calls
