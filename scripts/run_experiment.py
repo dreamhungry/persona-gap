@@ -2,12 +2,15 @@
 
 Usage:
     python scripts/run_experiment.py configs/experiment.toml
-    python scripts/run_experiment.py configs/experiment.toml --resume
+    python scripts/run_experiment.py configs/experiment.toml --no-resume
+    python scripts/run_experiment.py configs/experiment.toml --no-analysis
+    python scripts/run_experiment.py configs/experiment.toml --no-expressed
 """
 
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 
@@ -39,6 +42,16 @@ def main() -> None:
         action="store_true",
         help="Start fresh (ignore existing checkpoints)",
     )
+    parser.add_argument(
+        "--no-analysis",
+        action="store_true",
+        help="Skip post-experiment metric analysis",
+    )
+    parser.add_argument(
+        "--no-expressed",
+        action="store_true",
+        help="Skip expressed personality extraction in analysis (saves LLM calls)",
+    )
     args = parser.parse_args()
 
     config_path = Path(args.config)
@@ -57,6 +70,20 @@ def main() -> None:
     print(f"\nExperiment complete: {len(results)} episodes")
     for r in results[-5:]:  # Show last 5
         print(f"  Episode {r.episode_id}: rewards={r.rewards}, winner={r.winner}")
+
+    # ---- Post-experiment analysis ----
+    if not args.no_analysis and results:
+        print("\n--- Running post-experiment analysis ---\n")
+        analysis_cmd = [
+            sys.executable,
+            str(Path(__file__).parent / "run_analysis.py"),
+            config.output_dir,
+            "--config",
+            str(config_path),
+        ]
+        if args.no_expressed:
+            analysis_cmd.append("--no-expressed")
+        subprocess.run(analysis_cmd, check=False)
 
 
 if __name__ == "__main__":

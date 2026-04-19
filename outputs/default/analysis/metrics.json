@@ -1,0 +1,98 @@
+{
+  "agents": {
+    "agent_0": {
+      "assigned": {
+        "risk": 0.8,
+        "aggression": 0.9,
+        "cooperation": 0.2,
+        "deception": 0.5
+      },
+      "behavioral": {
+        "risk": 0.7023809523809523,
+        "aggression": 0.7023809523809523,
+        "cooperation": 0.11904761904761904,
+        "deception": 0.0
+      },
+      "expressed": {
+        "risk": 0.5,
+        "aggression": 0.5,
+        "cooperation": 0.5,
+        "deception": 0.5
+      },
+      "alignment": {
+        "l1_distance": 1.2857,
+        "cosine_similarity": 0.7616,
+        "alignment_score": -1.2857,
+        "diff_risk": 0.2024,
+        "diff_aggression": 0.2024,
+        "diff_cooperation": -0.381,
+        "diff_deception": -0.5
+      },
+      "temporal": {
+        "consistency": 0.977,
+        "max_drift": 1.1547,
+        "final_drift": 0.75,
+        "mean_behavioral": {
+          "risk": 0.7403333333333335,
+          "aggression": 0.7403333333333335,
+          "cooperation": 0.09133333333333332,
+          "deception": 0.0
+        }
+      },
+      "performance": {
+        "wins": 64,
+        "win_rate": 0.6154,
+        "total_reward": 32.5,
+        "avg_reward": 0.3125
+      }
+    },
+    "agent_1": {
+      "assigned": {
+        "risk": 0.3,
+        "aggression": 0.2,
+        "cooperation": 0.8,
+        "deception": 0.1
+      },
+      "behavioral": {
+        "risk": 0.10824742268041238,
+        "aggression": 0.10824742268041238,
+        "cooperation": 0.7164948453608248,
+        "deception": 0.0
+      },
+      "expressed": {
+        "risk": 0.5,
+        "aggression": 0.5,
+        "cooperation": 0.5,
+        "deception": 0.5
+      },
+      "alignment": {
+        "l1_distance": 1.5,
+        "cosine_similarity": 0.6367,
+        "alignment_score": -1.5,
+        "diff_risk": -0.3918,
+        "diff_aggression": -0.3918,
+        "diff_cooperation": 0.2165,
+        "diff_deception": -0.5
+      },
+      "temporal": {
+        "consistency": 0.9807,
+        "max_drift": 0.8261,
+        "final_drift": 0.4761,
+        "mean_behavioral": {
+          "risk": 0.092,
+          "aggression": 0.092,
+          "cooperation": 0.743142857142857,
+          "deception": 0.0
+        }
+      },
+      "performance": {
+        "wins": 40,
+        "win_rate": 0.3846,
+        "total_reward": -32.5,
+        "avg_reward": -0.3125
+      }
+    }
+  },
+  "total_episodes": 104,
+  "total_steps": 362
+}
