@@ -1,0 +1,8 @@
+# Personality preset: Cooperative
+# High cooperation, low aggression and deception
+
+[personality]
+risk = 0.3
+aggression = 0.2
+cooperation = 0.9
+deception = 0.1

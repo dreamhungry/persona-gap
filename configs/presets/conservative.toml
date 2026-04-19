@@ -1,0 +1,8 @@
+# Personality preset: Conservative
+# Low risk and aggression, moderate cooperation, no deception
+
+[personality]
+risk = 0.2
+aggression = 0.1
+cooperation = 0.6
+deception = 0.1

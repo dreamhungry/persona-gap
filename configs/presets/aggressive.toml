@@ -1,0 +1,8 @@
+# Personality preset: Aggressive
+# High risk-taking and aggression, low cooperation
+
+[personality]
+risk = 0.8
+aggression = 0.9
+cooperation = 0.2
+deception = 0.5

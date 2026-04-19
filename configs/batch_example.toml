@@ -1,0 +1,61 @@
+# Batch experiment configuration example
+#
+# This file shows how to define a batch experiment that sweeps over
+# multiple personality presets and ablation variables (memory / communication).
+
+[experiment]
+seed = 42
+num_episodes = 50
+output_dir = "outputs/batch"
+
+# ---------- LLM Global Configuration ----------
+[llm]
+api_key = "sk-xxx"
+model = "gpt-4o-mini"
+temperature = 0.7
+max_tokens = 512
+max_retries = 3
+
+[env]
+adapter = "rlcard"
+game_name = "leduc-holdem"
+action_annotations_path = "configs/envs/leduc_holdem.toml"
+
+# Base agent template (will be overridden per sweep iteration)
+[[agents]]
+agent_id = "agent_0"
+memory_enabled = true
+communication_enabled = true
+
+[agents.personality]
+risk = 0.5
+aggression = 0.5
+cooperation = 0.5
+deception = 0.5
+
+[[agents]]
+agent_id = "agent_1"
+memory_enabled = true
+communication_enabled = true
+
+[agents.personality]
+risk = 0.5
+aggression = 0.5
+cooperation = 0.5
+deception = 0.5
+
+# ---------- Sweep parameters ----------
+[sweep]
+# Personality preset TOML files to iterate over (for agent_0)
+personalities = [
+    "configs/presets/aggressive.toml",
+    "configs/presets/cooperative.toml",
+    "configs/presets/deceptive.toml",
+    "configs/presets/conservative.toml",
+]
+
+# Ablation: with / without memory
+memory = [true, false]
+
+# Ablation: with / without communication
+communication = [true, false]

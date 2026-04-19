@@ -1,0 +1,9 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2026-04-19T09:45:00.405Z
+provider: 
+---
+
+项目代码里所有的注释都要用英文，不要用中文，代码里不能有中文

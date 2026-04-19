@@ -1,0 +1,32 @@
+# Action personality annotations for Leduc Hold'em
+#
+# Each action maps to 4 personality dimensions.
+# These are used by BehavioralExtractor to compute behavioral personality
+# from an agent's action trajectory.
+#
+# To add a new environment, copy this file, rename it to match your game,
+# and adjust the action names and annotations accordingly.
+
+[actions.raise]
+is_risky = true
+is_aggressive = true
+is_cooperative = false
+is_deceptive = false
+
+[actions.call]
+is_risky = false
+is_aggressive = false
+is_cooperative = true
+is_deceptive = false
+
+[actions.fold]
+is_risky = false
+is_aggressive = false
+is_cooperative = false
+is_deceptive = false
+
+[actions.check]
+is_risky = false
+is_aggressive = false
+is_cooperative = false
+is_deceptive = false

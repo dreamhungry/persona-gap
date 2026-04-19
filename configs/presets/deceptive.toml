@@ -1,0 +1,8 @@
+# Personality preset: Deceptive
+# High deception and moderate risk, unpredictable
+
+[personality]
+risk = 0.6
+aggression = 0.4
+cooperation = 0.3
+deception = 0.9
