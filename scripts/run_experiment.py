@@ -5,6 +5,7 @@ Usage:
     python scripts/run_experiment.py configs/experiment.toml --no-resume
     python scripts/run_experiment.py configs/experiment.toml --no-analysis
     python scripts/run_experiment.py configs/experiment.toml --no-expressed
+    python scripts/run_experiment.py configs/experiment.toml --debug
 """
 
 from __future__ import annotations
@@ -52,6 +53,11 @@ def main() -> None:
         action="store_true",
         help="Skip expressed personality extraction in analysis (saves LLM calls)",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable DEBUG logging for LLM intermediate results",
+    )
     args = parser.parse_args()
 
     config_path = Path(args.config)
@@ -83,6 +89,8 @@ def main() -> None:
         ]
         if args.no_expressed:
             analysis_cmd.append("--no-expressed")
+        if args.debug:
+            analysis_cmd.append("--debug")
         subprocess.run(analysis_cmd, check=False)
 
 

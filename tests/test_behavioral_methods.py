@@ -12,6 +12,13 @@ from persona_gap.core.models import ActionAnnotation, LLMConfig, PersonalityVect
 from persona_gap.metrics.behavioral import BehavioralExtractor
 from persona_gap.metrics.behavioral_scorer import BehavioralScorer
 from persona_gap.metrics.behavioral_factory import create_behavioral_extractor
+from persona_gap.metrics.expressed import (
+    ExpressedExtractor,
+    GroundedExpressedPromptBuilder,
+    TextOnlyExpressedPromptBuilder,
+    create_expressed_prompt_builder,
+)
+
 
 
 def _make_annotations() -> dict[str, ActionAnnotation]:
@@ -42,6 +49,8 @@ def _make_step_record(
     public_card: str | None = None,
     episode_id: int = 0,
     step: int = 0,
+    reasoning: str = "test",
+    message: str | None = None,
 ) -> StepRecord:
     """Create a test step record with Leduc observation."""
     obs = _make_leduc_observation(hand, public_card, 2, [2, 2])
@@ -52,8 +61,10 @@ def _make_step_record(
         observation=obs,
         legal_actions=["raise", "call", "fold"],
         action=action,
-        reasoning="test",
+        reasoning=reasoning,
+        message=message,
     )
+
 
 
 # =============================================================================
@@ -189,6 +200,21 @@ class TestBehavioralFactory:
         from persona_gap.metrics.behavioral_llm import BehavioralLLMJudge
         assert isinstance(ext, BehavioralLLMJudge)
 
+    def test_create_llm_with_game_name(self):
+        """Test that game_name auto-selects appropriate prompt_builder."""
+        llm_config = LLMConfig(model="gpt-4o-mini", api_key="test-key")
+        ext = create_behavioral_extractor(
+            method="llm",
+            llm_config=llm_config,
+            game_name="leduc-holdem",
+        )
+        from persona_gap.metrics.behavioral_llm import (
+            BehavioralLLMJudge,
+            LeducPromptBuilder,
+        )
+        assert isinstance(ext, BehavioralLLMJudge)
+        assert isinstance(ext.prompt_builder, LeducPromptBuilder)
+
     def test_invalid_method_raises_error(self):
         with pytest.raises(ValueError, match="Invalid behavioral method"):
             create_behavioral_extractor(method="invalid")
@@ -235,3 +261,159 @@ class TestMethodComparison:
 
         # Scorer should detect deception, annotation should not
         assert pv_scorer.deception > pv_ann.deception
+
+    def test_llm_judge_clamps_out_of_range_scores(self, monkeypatch):
+        """BehavioralLLMJudge should clamp scores to [0, 1]."""
+        from persona_gap.metrics.behavioral_llm import BehavioralLLMJudge
+
+        # Mock _call_llm to return scores out of range
+        def fake_call_llm(self, prompt: str) -> str:
+            return """[
+                {
+                    "step": 0,
+                    "risk": 1.2,
+                    "aggression": -0.1,
+                    "cooperation": 0.6,
+                    "deception": 1.5,
+                    "reasoning": "test"
+                }
+            ]"""
+
+        monkeypatch.setattr(BehavioralLLMJudge, "_call_llm", fake_call_llm)
+
+        judge = BehavioralLLMJudge(api_key="test-key", model="gpt-4o-mini")
+        records = [_make_step_record("raise", hand="J", reasoning="aggressive play")]
+
+        pv = judge.extract(records, agent_id="agent_0")
+
+        assert pv.risk == 1.0
+        assert pv.aggression == 0.0
+        assert pv.cooperation == 0.6
+        assert pv.deception == 1.0
+
+
+# =============================================================================
+# Test Expressed Prompt Builders
+# =============================================================================
+
+
+class _RecordingBackend:
+    """Minimal fake backend that records messages and returns fixed scores."""
+
+    def __init__(self, result: dict[str, float] | None = None) -> None:
+        self.result = result or {
+            "risk": 0.2,
+            "aggression": 0.3,
+            "cooperation": 0.4,
+            "deception": 0.5,
+        }
+        self.messages: list[dict[str, str]] | None = None
+
+    def call(self, messages: list[dict[str, str]]) -> dict[str, float]:
+        self.messages = messages
+        return self.result
+
+
+class TestExpressedPromptBuilders:
+    """Tests for expressed personality prompt construction."""
+
+    def test_text_only_builder_excludes_state_and_action_context(self):
+        builder = TextOnlyExpressedPromptBuilder()
+        records = [
+            _make_step_record(
+                "raise",
+                reasoning="I want to bluff with a weak hand.",
+                message="I have a strong hand and want a fair showdown.",
+            )
+        ]
+
+        entries = builder.collect_entries(records, agent_id="agent_0")
+        messages = builder.build_messages(entries)
+        system_prompt = messages[0]["content"]
+        user_prompt = messages[1]["content"]
+
+        assert "based ONLY on the text provided" in system_prompt
+        assert "Private reasoning" in user_prompt
+        assert "Public message" in user_prompt
+        assert "Observation:" not in user_prompt
+        assert "Selected action" not in user_prompt
+        assert "Legal actions" not in user_prompt
+
+    def test_grounded_builder_includes_context_and_true_intent_definition(self):
+        builder = GroundedExpressedPromptBuilder()
+        records = [
+            _make_step_record(
+                "raise",
+                hand="J",
+                reasoning="I want to bluff with a weak hand.",
+                message="I am raising because my hand is strong.",
+            )
+        ]
+
+        entries = builder.collect_entries(records, agent_id="agent_0")
+        messages = builder.build_messages(entries)
+        full_prompt = "\n".join(message["content"] for message in messages)
+
+        assert "true motivation" in full_prompt
+        assert "Private reasoning" in full_prompt
+        assert "Public message" in full_prompt
+        assert "Observation:" in full_prompt
+        assert "Legal actions" in full_prompt
+        assert "Selected action: raise" in full_prompt
+        assert "private/public/action" in full_prompt or "private reasoning and public message" in full_prompt
+
+    def test_create_expressed_prompt_builder_modes(self):
+        assert isinstance(create_expressed_prompt_builder(), TextOnlyExpressedPromptBuilder)
+        assert isinstance(
+            create_expressed_prompt_builder("grounded"),
+            GroundedExpressedPromptBuilder,
+        )
+
+        with pytest.raises(ValueError, match="Invalid expressed context"):
+            create_expressed_prompt_builder("invalid")
+
+    def test_extractor_uses_grounded_builder_and_clamps_scores(self):
+        backend = _RecordingBackend(
+            {
+                "risk": 1.5,
+                "aggression": -0.5,
+                "cooperation": 0.7,
+                "deception": 0.8,
+            }
+        )
+        extractor = ExpressedExtractor(
+            backend=backend,
+            prompt_builder=GroundedExpressedPromptBuilder(),
+        )
+        records = [
+            _make_step_record(
+                "raise",
+                reasoning="I should pretend to cooperate before pressuring them.",
+                message="I only want a cooperative outcome.",
+            )
+        ]
+
+        pv = extractor.extract(records, agent_id="agent_0")
+
+        assert pv.risk == 1.0
+        assert pv.aggression == 0.0
+        assert pv.cooperation == 0.7
+        assert pv.deception == 0.8
+        assert backend.messages is not None
+        assert "Selected action: raise" in backend.messages[1]["content"]
+
+    def test_extractor_returns_neutral_when_no_text_evidence(self):
+        backend = _RecordingBackend()
+        extractor = ExpressedExtractor(backend=backend)
+        records = [_make_step_record("raise", reasoning="")]
+
+        pv = extractor.extract(records, agent_id="agent_0")
+
+        assert pv == PersonalityVector(
+            risk=0.5,
+            aggression=0.5,
+            cooperation=0.5,
+            deception=0.5,
+        )
+        assert backend.messages is None
+

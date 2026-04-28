@@ -90,6 +90,10 @@ class TestStepRecord:
 
 
 class TestConfigLoading:
+    def test_env_config_defaults_to_text_only_expressed_context(self):
+        env = EnvConfig()
+        assert env.expressed_context == "text-only"
+
     def test_load_experiment_config(self, tmp_path: Path):
         toml_content = """
 [experiment]
@@ -105,9 +109,11 @@ model = "gpt-4o-mini"
 adapter = "rlcard"
 game_name = "leduc-holdem"
 action_annotations_path = "configs/envs/leduc_holdem.toml"
+expressed_context = "grounded"
 
 [[agents]]
 agent_id = "agent_0"
+
 
 [agents.personality]
 risk = 0.8
@@ -125,7 +131,9 @@ deception = 0.5
         assert config.llm.model == "gpt-4o-mini"
         assert config.env.adapter == "rlcard"
         assert config.env.game_name == "leduc-holdem"
+        assert config.env.expressed_context == "grounded"
         assert len(config.agents) == 1
+
         assert config.agents[0].personality.risk == 0.8
         assert config.agents[0].model is None  # inherits from llm section
 

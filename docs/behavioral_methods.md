@@ -113,6 +113,13 @@ scorer = create_behavioral_extractor(
 
 Uses LLM to evaluate each step with reasoning.
 
+**Architecture:** Modular and game-agnostic
+
+```
+BehavioralLLMJudge (coordinator)
+  └── PromptBuilder: Constructs game-specific prompts
+```
+
 **Prompt Structure:**
 
 ```
@@ -135,6 +142,39 @@ judge_temperature = 0.3
 **Cost Optimization:**
 - Batching: Processes multiple steps per API call
 - Caching: Avoids repeated evaluations
+
+**Extending to New Games:**
+
+```python
+from persona_gap.metrics.behavioral_llm import PromptBuilder
+
+class UnoPromptBuilder(PromptBuilder):
+    def build_judge_prompt(self, steps: list[dict]) -> str:
+        prompt = "You are analyzing Uno card game behavior...\n"
+        prompt += self.get_common_instructions()  # Reuse personality definitions
+        
+        # Add Uno-specific context
+        prompt += """
+**Uno specific context:**
+- Colors: Red, Blue, Green, Yellow
+- Special cards: Skip, Reverse, Draw Two, Wild, Wild Draw Four
+- Deception examples:
+  * Playing Wild when you have matching color → Hiding hand composition
+  * Holding onto Draw Four illegally → Rule exploitation
+"""
+        # Add steps and format
+        for i, step in enumerate(steps, 1):
+            prompt += f"Step {i}: {step['observation']}..."
+        
+        prompt += self.get_output_format()  # Standard JSON output
+        return prompt
+
+# Use custom prompt builder
+judge = BehavioralLLMJudge(
+    model="gpt-4o-mini",
+    prompt_builder=UnoPromptBuilder(),
+)
+```
 
 ---
 
@@ -265,7 +305,10 @@ def _get_parser_for_game(game_name: str) -> StateParser:
 A: You're using annotation method. Switch to `scorer` or `llm`.
 
 **Q: How to add a new game?**  
-A: Implement `StateParser` and optionally `ScoreCalculator`. See "Adding Support for a New Game" above.
+A: Implement the appropriate interfaces:
+- **For scorer method**: Implement `StateParser` and optionally `ScoreCalculator`
+- **For llm method**: Implement `PromptBuilder`
+- See "Adding Support for a New Game" sections above for examples.
 
 **Q: Scorer method fails on my custom game**  
 A: Provide custom parser/calculator:
@@ -281,5 +324,7 @@ scorer = BehavioralScorer(
 ## References
 
 - Code: `src/persona_gap/metrics/behavioral_scorer.py`
+- Code: `src/persona_gap/metrics/expressed.py`
 - Tests: `tests/test_behavioral_methods.py`
 - Examples: `examples/compare_behavioral_methods.py`
+

@@ -8,7 +8,8 @@ All core data structures are defined here:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
+
 
 from pydantic import BaseModel, Field
 
@@ -173,6 +174,11 @@ class EnvConfig(BaseModel):
         default="annotation",
         description="Method for behavioral personality extraction: 'annotation', 'scorer', or 'llm'",
     )
+    expressed_context: Literal["text-only", "grounded"] = Field(
+        default="text-only",
+        description="Context mode for expressed personality extraction: 'text-only' or 'grounded'",
+    )
+
 
 
 class ExperimentConfig(BaseModel):

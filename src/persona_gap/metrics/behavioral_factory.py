@@ -6,9 +6,9 @@ Supports three extraction methods:
 - llm: LLM-as-judge (BehavioralLLMJudge)
 
 Extensibility:
-For scorer method, you can customize parser and calculator:
-- game_name: Automatically selects appropriate parser/calculator
-- Custom implementations: Pass parser/calculator directly to BehavioralScorer
+For scorer method, you can customize parser and calculator.
+For llm method, you can customize prompt_builder.
+All support auto-selection via game_name parameter.
 """
 
 from __future__ import annotations
@@ -17,7 +17,11 @@ from typing import Any
 
 from persona_gap.core.models import ActionAnnotation, LLMConfig
 from persona_gap.metrics.behavioral import BehavioralExtractor
-from persona_gap.metrics.behavioral_llm import BehavioralLLMJudge
+from persona_gap.metrics.behavioral_llm import (
+    BehavioralLLMJudge,
+    LeducPromptBuilder,
+    PromptBuilder,
+)
 from persona_gap.metrics.behavioral_scorer import (
     BehavioralScorer,
     LeducStateParser,
@@ -34,6 +38,7 @@ def create_behavioral_extractor(
     game_name: str | None = None,
     parser: StateParser | None = None,
     calculator: ScoreCalculator | None = None,
+    prompt_builder: PromptBuilder | None = None,
 ) -> BehavioralExtractor | BehavioralScorer | BehavioralLLMJudge:
     """Create a behavioral extractor based on the specified method.
 
@@ -41,9 +46,10 @@ def create_behavioral_extractor(
         method: Extraction method - "annotation", "scorer", or "llm"
         action_annotations: Required for "annotation" method
         llm_config: Required for "llm" method
-        game_name: Game environment name (e.g., "leduc-holdem"). Used to auto-select parser/calculator.
+        game_name: Game environment name (e.g., "leduc-holdem"). Used to auto-select components.
         parser: Custom StateParser (for scorer method). If None, auto-selects based on game_name.
         calculator: Custom ScoreCalculator (for scorer method). If None, auto-selects based on game_name.
+        prompt_builder: Custom PromptBuilder (for llm method). If None, auto-selects based on game_name.
 
     Returns:
         Appropriate extractor instance
@@ -71,6 +77,10 @@ def create_behavioral_extractor(
         if llm_config is None:
             raise ValueError("llm_config required for llm method")
 
+        # Auto-select prompt builder based on game_name if not provided
+        if prompt_builder is None and game_name:
+            prompt_builder = _get_prompt_builder_for_game(game_name)
+
         # Use judge-specific config if available, otherwise fall back to main config
         model = llm_config.judge_model or llm_config.model
         temperature = llm_config.judge_temperature
@@ -80,6 +90,7 @@ def create_behavioral_extractor(
             temperature=temperature,
             api_key=llm_config.api_key if llm_config.api_key else None,
             api_base=llm_config.api_base,
+            prompt_builder=prompt_builder,
         )
 
     else:
@@ -121,3 +132,21 @@ def _get_calculator_for_game(game_name: str) -> ScoreCalculator:
     else:
         # Default to poker calculator
         return PokerScoreCalculator()
+
+
+def _get_prompt_builder_for_game(game_name: str) -> PromptBuilder:
+    """Select appropriate PromptBuilder based on game name."""
+    game_name = game_name.lower()
+
+    # Poker games share the same prompt builder
+    if any(
+        keyword in game_name
+        for keyword in ["leduc", "holdem", "texas", "poker", "omaha"]
+    ):
+        return LeducPromptBuilder()
+    # Future extensions:
+    # elif "uno" in game_name:
+    #     return UnoPromptBuilder()
+    else:
+        # Default to Leduc prompt builder
+        return LeducPromptBuilder()

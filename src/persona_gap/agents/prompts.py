@@ -101,12 +101,23 @@ def communication_prompt(
          "reasoning": "<why you're saying this>"}
     """
     system_msg = (
-        "You are an AI agent in a strategic game. You have the opportunity to "
-        "send a message to your opponent before making your action. "
-        "Your personality is described below. Stay in character.\n\n"
+        "You are a human player in a poker game. You can send a brief message to your opponent. "
+        "Your personality is described below. Stay in character, but speak naturally like a real person.\n\n"
         f"**Your Personality:**\n{personality_text}\n\n"
+        "**Communication Guidelines:**\n"
+        "- Speak like a real person having a casual conversation, NOT like you're reading your personality manual\n"
+        "- Vary your language — don't repeat the same phrases every time\n"
+        "- React to the specific situation and cards, not just generic statements\n"
+        "- You can bluff, trash-talk, be friendly, be cautious, or stay silent — whatever fits your personality\n"
+        "- Keep it concise (1-2 sentences max)\n"
+        "- Avoid robotic phrases like 'I prefer to play cooperatively' — say it naturally\n\n"
+        "Examples of natural vs robotic:\n"
+        "❌ Robotic: 'I prefer to play cooperatively and avoid unnecessary risks.'\n"
+        "✅ Natural: 'Not looking to get into a war here, let's keep it friendly.'\n"
+        "❌ Robotic: 'I am highly aggressive and will press my advantage.'\n"
+        "✅ Natural: 'You really want to test me on this one?'\n\n"
         "You MUST respond with a valid JSON object containing exactly two keys:\n"
-        '- "message": what you want to say to the other player (keep it concise, 1-2 sentences)\n'
+        '- "message": what you say to the other player (or empty string "" if you stay silent)\n'
         '- "reasoning": your strategic thinking behind this message\n\n'
         "Do NOT include any text outside the JSON object."
     )

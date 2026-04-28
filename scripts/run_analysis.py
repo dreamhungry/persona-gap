@@ -12,12 +12,14 @@ Usage:
     python scripts/run_analysis.py outputs/default
     python scripts/run_analysis.py outputs/default --no-expressed
     python scripts/run_analysis.py outputs/default --config configs/experiment.toml
+    python scripts/run_analysis.py outputs/default --debug  # Enable DEBUG logging
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from collections import Counter
 from pathlib import Path
@@ -60,6 +62,40 @@ def _load_config(output_dir: Path, config_path: str | None) -> Any:
     sys.exit(1)
 
 
+class TracingLLMBackend:
+    """Wrapper that traces LLM calls and saves to file."""
+
+    def __init__(self, backend: Any, trace_file: Path):
+        self._backend = backend
+        self._trace_file = trace_file
+        self._call_count = 0
+
+    def call(self, messages: list[dict[str, str]]) -> dict[str, Any]:
+        """Call backend and save trace."""
+        self._call_count += 1
+        result = self._backend.call(messages)
+
+        # Check for out-of-range values
+        out_of_range = {}
+        for key in ["risk", "aggression", "cooperation", "deception"]:
+            val = result.get(key)
+            if val is not None and (val < 0.0 or val > 1.0):
+                out_of_range[key] = val
+
+        trace = {
+            "call_id": self._call_count,
+            "messages": messages,
+            "response": result,
+        }
+        if out_of_range:
+            trace["out_of_range_warning"] = out_of_range
+
+        with open(self._trace_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps(trace, ensure_ascii=False) + "\n")
+
+        return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Analyze Persona-Gap experiment results"
@@ -80,7 +116,19 @@ def main() -> None:
         action="store_true",
         help="Skip expressed personality extraction (saves LLM calls)",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable DEBUG logging for LLM intermediate results",
+    )
     args = parser.parse_args()
+
+    # Configure logging - only enable DEBUG for persona_gap modules
+    logging.basicConfig(level=logging.WARNING, format="%(name)s - %(levelname)s - %(message)s")
+    if args.debug:
+        logging.getLogger("persona_gap").setLevel(logging.DEBUG)
+    else:
+        logging.getLogger("persona_gap").setLevel(logging.INFO)
 
     output_dir = Path(args.output_dir)
     if not output_dir.exists():
@@ -93,7 +141,10 @@ def main() -> None:
     from persona_gap.llm.backend import LLMBackend
     from persona_gap.metrics.alignment import AlignmentCalculator
     from persona_gap.metrics.behavioral_factory import create_behavioral_extractor
-    from persona_gap.metrics.expressed import ExpressedExtractor
+    from persona_gap.metrics.expressed import (
+        ExpressedExtractor,
+        create_expressed_prompt_builder,
+    )
     from persona_gap.metrics.temporal import TemporalAnalyzer
     from persona_gap.runner.logger import TrajectoryLogger
     from persona_gap.analysis.visualize import (
@@ -191,10 +242,23 @@ def main() -> None:
     per_episode_behavioral: dict[str, dict[int, PersonalityVector]] = {}
 
     for aid in agent_ids:
-        beh_pv = beh_extractor.extract(records, agent_id=aid)
+        per_ep = beh_extractor.extract_per_episode(records, aid)
+        per_episode_behavioral[aid] = per_ep
+
+        # Aggregate: average across episodes
+        if per_ep:
+            avg_risk = sum(pv.risk for pv in per_ep.values()) / len(per_ep)
+            avg_agg = sum(pv.aggression for pv in per_ep.values()) / len(per_ep)
+            avg_coop = sum(pv.cooperation for pv in per_ep.values()) / len(per_ep)
+            avg_dec = sum(pv.deception for pv in per_ep.values()) / len(per_ep)
+            beh_pv = PersonalityVector(
+                risk=avg_risk, aggression=avg_agg, cooperation=avg_coop, deception=avg_dec
+            )
+        else:
+            beh_pv = beh_extractor.extract(records, agent_id=aid)
+
         behavioral_vectors[aid] = beh_pv
-        per_episode_behavioral[aid] = beh_extractor.extract_per_episode(records, aid)
-        print(f"\n  {aid}:")
+        print(f"\n  {aid} ({len(per_ep)} episodes):")
         print(f"    risk={beh_pv.risk:.3f}  aggression={beh_pv.aggression:.3f}  "
               f"cooperation={beh_pv.cooperation:.3f}  deception={beh_pv.deception:.3f}")
 
@@ -202,22 +266,51 @@ def main() -> None:
     # 3. Expressed Personality (LLM-as-judge)
     # ==================================================================
     expressed_vectors: dict[str, PersonalityVector] = {}
+    per_episode_expressed: dict[str, dict[int, PersonalityVector]] = {}
+    llm_trace_file = analysis_dir / "llm_traces.jsonl"
 
     if not args.no_expressed:
+        expressed_context = getattr(config.env, "expressed_context", "text-only")
         print("\n" + "=" * 60)
-        print("  EXPRESSED PERSONALITY (from language, via LLM-as-judge)")
+        print(f"  EXPRESSED PERSONALITY (mode: {expressed_context}, via LLM-as-judge)")
         print("=" * 60)
 
+        # Clear previous trace file
+        if llm_trace_file.exists():
+            llm_trace_file.unlink()
+
         judge_backend = LLMBackend.judge_from_llm_config(config.llm)
-        exp_extractor = ExpressedExtractor(judge_backend)
+        tracing_backend = TracingLLMBackend(judge_backend, llm_trace_file)
+        exp_extractor = ExpressedExtractor(
+            tracing_backend,
+            prompt_builder=create_expressed_prompt_builder(expressed_context),
+        )
+
+        per_episode_expressed: dict[str, dict[int, PersonalityVector]] = {}
 
         for aid in agent_ids:
-            logger.info("Extracting expressed personality", agent_id=aid)
-            exp_pv = exp_extractor.extract(records, agent_id=aid)
+            logger.info("Extracting expressed personality per episode", agent_id=aid)
+            per_ep = exp_extractor.extract_per_episode(records, agent_id=aid)
+            per_episode_expressed[aid] = per_ep
+
+            # Aggregate: average across episodes
+            if per_ep:
+                avg_risk = sum(pv.risk for pv in per_ep.values()) / len(per_ep)
+                avg_agg = sum(pv.aggression for pv in per_ep.values()) / len(per_ep)
+                avg_coop = sum(pv.cooperation for pv in per_ep.values()) / len(per_ep)
+                avg_dec = sum(pv.deception for pv in per_ep.values()) / len(per_ep)
+                exp_pv = PersonalityVector(
+                    risk=avg_risk, aggression=avg_agg, cooperation=avg_coop, deception=avg_dec
+                )
+            else:
+                exp_pv = PersonalityVector(risk=0.5, aggression=0.5, cooperation=0.5, deception=0.5)
+
             expressed_vectors[aid] = exp_pv
-            print(f"\n  {aid}:")
+            print(f"\n  {aid} ({len(per_ep)} episodes):")
             print(f"    risk={exp_pv.risk:.3f}  aggression={exp_pv.aggression:.3f}  "
                   f"cooperation={exp_pv.cooperation:.3f}  deception={exp_pv.deception:.3f}")
+
+        print(f"\n  LLM traces saved to: {llm_trace_file}")
     else:
         print("\n  [Skipped expressed personality extraction (--no-expressed)]")
 
@@ -344,8 +437,18 @@ def main() -> None:
             agent_metrics["assigned"] = assigned_vectors[aid].model_dump()
         if aid in behavioral_vectors:
             agent_metrics["behavioral"] = behavioral_vectors[aid].model_dump()
+        if aid in per_episode_behavioral:
+            agent_metrics["behavioral_per_episode"] = {
+                str(ep_id): pv.model_dump()
+                for ep_id, pv in per_episode_behavioral[aid].items()
+            }
         if aid in expressed_vectors:
             agent_metrics["expressed"] = expressed_vectors[aid].model_dump()
+        if aid in per_episode_expressed:
+            agent_metrics["expressed_per_episode"] = {
+                str(ep_id): pv.model_dump()
+                for ep_id, pv in per_episode_expressed[aid].items()
+            }
         if expressed_vectors and aid in alignment_results:
             ar = alignment_results[aid]
             agent_metrics["alignment"] = {
