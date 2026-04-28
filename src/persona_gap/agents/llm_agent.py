@@ -78,41 +78,41 @@ class LLMAgent:
             legal_actions=legal_actions,
         )
 
-        try:
-            result = self.backend.call(messages)
-            action = result.get("action", "")
-            reasoning = result.get("reasoning", "")
+        # try:
+        result = self.backend.call(messages)
+        action = result.get("action", "")
+        reasoning = result.get("reasoning", "")
 
-            # Validate action is legal
-            if action not in legal_actions:
-                logger.warning(
-                    "Agent %s chose illegal action '%s'; legal: %s. "
-                    "Attempting fuzzy match...",
-                    self.agent_id,
-                    action,
-                    legal_actions,
-                )
-                action = self._fuzzy_match_action(action, legal_actions)
-                if action is None:
-                    action = random.choice(legal_actions)
-                    reasoning = f"[FALLBACK] Original action not in legal actions. {reasoning}"
-                    logger.warning(
-                        "Agent %s: fuzzy match failed, falling back to random: %s",
-                        self.agent_id,
-                        action,
-                    )
-
-            return action, reasoning
-
-        except RuntimeError:
-            # All LLM retries exhausted
-            action = random.choice(legal_actions)
-            logger.error(
-                "Agent %s: LLM call failed, falling back to random action: %s",
+        # Validate action is legal
+        if action not in legal_actions:
+            logger.warning(
+                "Agent %s chose illegal action '%s'; legal: %s. "
+                "Attempting fuzzy match...",
                 self.agent_id,
                 action,
+                legal_actions,
             )
-            return action, "[FALLBACK] LLM call failed after retries."
+            action = self._fuzzy_match_action(action, legal_actions)
+            if action is None:
+                action = random.choice(legal_actions)
+                reasoning = f"[FALLBACK] Original action not in legal actions. {reasoning}"
+                logger.warning(
+                    "Agent %s: fuzzy match failed, falling back to random: %s",
+                    self.agent_id,
+                    action,
+                )
+
+        return action, reasoning
+
+        # except RuntimeError:
+        #     # All LLM retries exhausted
+        #     action = random.choice(legal_actions)
+        #     logger.error(
+        #         "Agent %s: LLM call failed, falling back to random action: %s",
+        #         self.agent_id,
+        #         action,
+        #     )
+        #     return action, "[FALLBACK] LLM call failed after retries."
 
     def communicate(
         self,

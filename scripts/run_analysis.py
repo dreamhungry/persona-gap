@@ -92,7 +92,7 @@ def main() -> None:
     from persona_gap.core.models import PersonalityVector
     from persona_gap.llm.backend import LLMBackend
     from persona_gap.metrics.alignment import AlignmentCalculator
-    from persona_gap.metrics.behavioral import BehavioralExtractor
+    from persona_gap.metrics.behavioral_factory import create_behavioral_extractor
     from persona_gap.metrics.expressed import ExpressedExtractor
     from persona_gap.metrics.temporal import TemporalAnalyzer
     from persona_gap.runner.logger import TrajectoryLogger
@@ -173,10 +173,20 @@ def main() -> None:
     # 2. Behavioral Personality
     # ==================================================================
     print("\n" + "=" * 60)
-    print("  BEHAVIORAL PERSONALITY (from actions)")
+    
+    # Determine which method to use
+    method = getattr(config.env, 'behavioral_method', 'annotation')
+    print(f"  BEHAVIORAL PERSONALITY (method: {method})")
     print("=" * 60)
 
-    beh_extractor = BehavioralExtractor(annotations)
+    # Create extractor based on method
+    beh_extractor = create_behavioral_extractor(
+        method=method,
+        action_annotations=annotations if method == 'annotation' else None,
+        llm_config=config.llm if method == 'llm' else None,
+        game_name=config.env.game_name,  # Auto-select parser/calculator for scorer method
+    )
+    
     behavioral_vectors: dict[str, PersonalityVector] = {}
     per_episode_behavioral: dict[str, dict[int, PersonalityVector]] = {}
 

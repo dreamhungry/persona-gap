@@ -69,8 +69,8 @@ class ExperimentRunner:
             )
             self.agents[agent_cfg.agent_id] = LLMAgent(agent_cfg, backend)
 
-        # Logger and checkpoint
-        self.traj_logger = TrajectoryLogger(self.output_dir)
+        # Checkpoint manager (logger created in run() based on resume flag)
+        self.traj_logger: TrajectoryLogger | None = None
         self.ckpt_manager = CheckpointManager(self.output_dir)
 
     def run(self, resume: bool = True) -> list[EpisodeResult]:
@@ -99,6 +99,9 @@ class ExperimentRunner:
                     start_episode=start_episode,
                     total_episodes=self.config.num_episodes,
                 )
+
+        # Create logger: truncate old files when starting fresh
+        self.traj_logger = TrajectoryLogger(self.output_dir, append=resume)
 
         for episode_id in range(start_episode, self.config.num_episodes):
             logger.info("Starting episode", episode_id=episode_id)

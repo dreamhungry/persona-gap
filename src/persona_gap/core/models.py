@@ -169,6 +169,10 @@ class EnvConfig(BaseModel):
     adapter: str = "rlcard"
     game_name: str = "leduc-holdem"
     action_annotations_path: str = "configs/envs/leduc_holdem.toml"
+    behavioral_method: str = Field(
+        default="annotation",
+        description="Method for behavioral personality extraction: 'annotation', 'scorer', or 'llm'",
+    )
 
 
 class ExperimentConfig(BaseModel):

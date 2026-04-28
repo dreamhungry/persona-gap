@@ -2,9 +2,9 @@
 # 2-agent Leduc Hold'em adversarial experiment
 
 [experiment]
-seed = 42
+seed = 32
 num_episodes = 5
-output_dir = "outputs/default"
+output_dir = "outputs/test1"
 
 # ---------- LLM Global Configuration ----------
 # Secrets (api_key, api_base) are loaded from .env file at project root.
@@ -25,6 +25,9 @@ max_retries = 3                  # Retry count for failed LLM calls
 adapter = "rlcard"
 game_name = "leduc-holdem"
 action_annotations_path = "configs/envs/leduc_holdem.toml"
+# behavioral_method: Method for behavioral personality extraction
+# Options: "annotation" (default), "scorer" (state-aware), "llm" (LLM judge)
+behavioral_method = "scorer"
 
 # ---------- Agent 0: Aggressive ----------
 [[agents]]

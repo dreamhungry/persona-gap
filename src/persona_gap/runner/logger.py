@@ -19,20 +19,20 @@ logger = logging.getLogger(__name__)
 
 
 class TrajectoryLogger:
-    """Append-only JSONL logger for experiment trajectories."""
+    """JSONL logger for experiment trajectories."""
 
-    def __init__(self, output_dir: str | Path) -> None:
+    def __init__(self, output_dir: str | Path, append: bool = True) -> None:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self._trajectory_path = self.output_dir / "trajectory.jsonl"
         self._episodes_path = self.output_dir / "episodes.jsonl"
 
-        # Open files in append mode
-        self._traj_file = open(self._trajectory_path, "a", encoding="utf-8")
-        self._ep_file = open(self._episodes_path, "a", encoding="utf-8")
+        mode = "a" if append else "w"
+        self._traj_file = open(self._trajectory_path, mode, encoding="utf-8")
+        self._ep_file = open(self._episodes_path, mode, encoding="utf-8")
 
-        logger.info("TrajectoryLogger writing to %s", self.output_dir)
+        logger.info("TrajectoryLogger writing to %s (mode=%s)", self.output_dir, mode)
 
     def log_step(self, record: StepRecord) -> None:
         """Write a single step record."""
