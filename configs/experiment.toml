@@ -4,7 +4,7 @@
 [experiment]
 seed = 32
 num_episodes = 5
-output_dir = "outputs/test1"
+output_dir = "outputs/test2"
 
 # ---------- LLM Global Configuration ----------
 # Secrets (api_key, api_base) are loaded from .env file at project root.
